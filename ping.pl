@@ -32,18 +32,18 @@ sub main {
      
     # when IPPROTO_RAW is used IP_HDRINCL is not needed
     $IPROTO_RAW = 1;
-    socket($sock , AF_INET, SOCK_RAW, $IPROTO_RAW) 
+    socket(SOCKET , AF_INET, SOCK_RAW, $IPROTO_RAW) 
         or die $!;
      
     #set IP_HDRINCL to 1, this is necessary when the above protocol is something other than IPPROTO_RAW
-    #setsockopt($sock, 0, IP_HDRINCL, 1);
+    #setsockopt(SOCKET, 0, IP_HDRINCL, 1);
  
     my ($packet) = makeheaders($src_host, $src_port, $dst_host, $dst_port);
      
     my ($destination) = pack('Sna4x8', AF_INET, $dst_port, $dst_host);
      
 
-    send($sock , $packet , 0 , $destination) or die $!;
+    send(SOCKET , $packet , 0 , $destination) or die $!;
     
 }
  
