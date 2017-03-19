@@ -54,13 +54,13 @@ sub makeheaders {
     my $zero_cksum = 0;
     my $id = int(rand(1000));
     # Lets construct the TCP half
-    my $header = pack('ccSSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
+    my $icmp_header = pack('ccSSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
     #sending 69 bytes
     my $data = "ICMP PROTOCOL DATA ICMP PROTOCOL DATA ICMP PROTOCOL DATA";
-    #calcular checksum del header + la data
-    my $my_checksum = checksum($header.$data);
+    #calcular checksum del icmp_header + la data
+    my $my_checksum = checksum($icmp_header.$data);
     #my $reverse_checksum = pack("S", unpack("n", $my_checksum));
-    $header = pack('ccnSs', ICMP_ECHO_REQUEST, 0, ($my_checksum), $id, 1);
+    $icmp_header = pack('ccnSs', ICMP_ECHO_REQUEST, 0, ($my_checksum), $id, 1);
 
     # Now lets construct the IP packet
     my $ip_ver = 4;
@@ -68,10 +68,10 @@ sub makeheaders {
     my $ip_ver_len = $ip_ver . $ip_len;
      
     my $ip_tos = 00;
-    my $ip_tot_len = $tcp_len + 20;
+    my $ip_tot_len = length($header . $data) + 20;
     my $ip_frag_id = 19245;
     my $ip_ttl = 25;
-    my $ip_proto = $IPPROTO_TCP;    # 6 for tcp
+    my $ip_proto = $IPPROTO_TCP;    # 1 for icmp
     my $ip_frag_flag = "010";
     my $ip_frag_oset = "0000000000000";
     my $ip_fl_fr = $ip_frag_flag . $ip_frag_oset;
@@ -85,7 +85,8 @@ sub makeheaders {
      
     # ip_header + header_icmp + data;
     # tested with ip header and it doesnt work.
-    my $pkt =  $header . $data;
+    my $pkt =  $icmp_header . $data;
+    #my $pkt = $ip_header . $header . $data;
      
     # packet is ready
     return $pkt;
