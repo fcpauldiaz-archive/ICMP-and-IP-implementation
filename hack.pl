@@ -1,5 +1,3 @@
-#!/usr/local/bin/perl
-
 use Socket;
 use constant ICMP_ECHO_REQUEST => 8;
 #print "Enter destination port: ";
