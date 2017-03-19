@@ -10,15 +10,16 @@
 #https://es.wikipedia.org/wiki/Internet_Control_Message_Protocol#Echo_Reply
 use Socket;
 use constant ICMP_ECHO_REQUEST => 8;
+use Sys::Hostname; #to get local ip
 
-$src_host = $ARGV[0]; # The source IP/Hostname
-$src_port = $ARGV[1]; # The Source Port
-$dst_host = $ARGV[2]; # The Destination IP/Hostname
-$dst_port = $ARGV[3]; # The Destination Port.
+#$src_host = $ARGV[0]; # The source IP/Hostname
+#$src_port = $ARGV[1]; # The Source Port
+$dst_host = $ARGV[0]; # The Destination IP/Hostname
+#$dst_port = $ARGV[3]; # The Destination Port.
 
-if(!defined $src_host or !defined $src_port or !defined $dst_host or !defined $dst_port) {
+if(!defined $dst_host) {
     # print usage instructions
-    print "Usage: $0 <source host> <source port> <dest host> <dest port>\n";
+    print "Usage: $0 <dest host> \n";
     exit;
 } 
 else {
@@ -37,10 +38,12 @@ sub main {
      
     #set IP_HDRINCL to 1, this is necessary when the above protocol is something other than IPPROTO_RAW
     #setsockopt(SOCKET, 0, IP_HDRINCL, 1);
- 
-    my ($packet) = makeheaders($src_host, $src_port, $dst_host, $dst_port);
+    my $src_host = inet_ntoa((gethostbyname(hostname))[4]);
+    my $src_port = 1; #doesnt matter
+    my $dst_port = 1; #doestn matter
+    my $packet = makeheaders($src_host, $src_port, $dst_host, $dst_port);
      
-    my ($destination) = pack('Sna4x8', AF_INET, $dst_port, $dst_host);
+    my $destination = pack('Sna4x8', AF_INET, $dst_port, $dst_host);
      
 
     send(SOCKET , $packet , 0 , $destination) or die $!;
@@ -55,8 +58,8 @@ sub makeheaders {
     my $id = int(rand(1000));
     # Lets construct the TCP half
     my $icmp_header = pack('ccSSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
-    #sending 69 bytes
-    my $data = "ICMP PROTOCOL DATA ICMP PROTOCOL DATA ICMP PROTOCOL DATA";
+    #sending 48 bytes
+    my $data = "UNIVERSIDAD DEL VALLE DE GUATEMALA ICMP DIA13203";
     #calcular checksum del icmp_header + la data
     my $my_checksum = checksum($icmp_header.$data);
     #my $reverse_checksum = pack("S", unpack("n", $my_checksum));
