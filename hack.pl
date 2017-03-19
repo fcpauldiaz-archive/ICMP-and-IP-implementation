@@ -1,3 +1,5 @@
+#!/usr/local/bin/perl
+
 use Socket;
 use constant ICMP_ECHO_REQUEST => 8;
 #print "Enter destination port: ";
@@ -36,7 +38,7 @@ sub doPing {
     my $dest_addr = shift;
     my $timeout = shift;
 
-    socket(SOCKET, AF_INET, SOCK_RAW, 255) || die $!;
+    socket(SOCKET, AF_INET, SOCK_RAW, 1) || die $!;
     setsockopt(SOCKET, 0, 1, 1);
 
     my $packet_id = int(($timeout * rand(1000)));

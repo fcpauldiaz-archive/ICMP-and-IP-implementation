@@ -1,43 +1,103 @@
+#Program to send out tcp syn packets using raw sockets on linux
+ 
 use Socket;
 use constant ICMP_ECHO_REQUEST => 8;
 
-socket(SOCKET, AF_INET, SOCK_RAW, 255) || die $!;
-setsockopt(SOCKET, 0, 1, 1);
+$src_host = $ARGV[0]; # The source IP/Hostname
+$src_port = $ARGV[1]; # The Source Port
+$dst_host = $ARGV[2]; # The Destination IP/Hostname
+$dst_port = $ARGV[3]; # The Destination Port.
 
-#ojo, las variables $srcHost, $srcPort, $dstHost, $dstPort no estan definidas, ustedes las tienen que leer de la linea de comandos
-my $packet = headers("192.168.0.1", 1, "173.194.215.113", 1);
-my $destination = pack('Sna4x8', AF_INET, 1, "173.194.215.113");
-$retVal = send(SOCKET,$packet,0,$destination);
-print $retVal;
-
-sub headers {
-  local($srcHost,$srcPort,$dstHost,$dstPort) = @_;
-  my $packet_id = int((rand(1000)));
-  #type 8, code 8, checksum 16, id 16, sequence 16
-  my $header = pack('ccnSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
-  #sending 69 bytes
-  my $data = "ICMP PROTOCOL HACK DATA ICMP PROTOCOL HACK DATA ICMP PROTOCOL HACK DATA";
-  #calcular checksum del header + la data
-  my $my_checksum = checksum($header.$data);
-  $header = pack('ccnSsLL', ICMP_ECHO_REQUEST, 0, 3342, $id, 1, "192.168.0.37", "1");
-  return $header.$data;
-  #aqui tienen que hacer su magia
+if(!defined $src_host or !defined $src_port or !defined $dst_host or !defined $dst_port) {
+    # print usage instructions
+    print "Usage: $0 <source host> <source port> <dest host> <dest port>\n";
+    exit;
+} 
+else {
+    # call the main function
+    main();
 }
+  
+sub main {
+    my $src_host = (gethostbyname($src_host))[4];
+    my $dst_host = (gethostbyname($dst_host))[4];
+     
+    # when IPPROTO_RAW is used IP_HDRINCL is not needed
+    $IPROTO_RAW = 1;
+    socket($sock , AF_INET, SOCK_RAW, $IPROTO_RAW) 
+        or die $!;
+     
+    #set IP_HDRINCL to 1, this is necessary when the above protocol is something other than IPPROTO_RAW
+    #setsockopt($sock, 0, IP_HDRINCL, 1);
+ 
+    my ($packet) = makeheaders($src_host, $src_port, $dst_host, $dst_port);
+     
+    my ($destination) = pack('Sna4x8', AF_INET, $dst_port, $dst_host);
+     
 
-#para el calculo del checksum podrian usar una funcion como la siguiente:
+    send($sock , $packet , 0 , $destination) or die $!;
+    
+}
+ 
+sub makeheaders {
+    $IPPROTO_TCP = 1;
+    local($src_host , $src_port , $dst_host , $dst_port) = @_;
+     
+    my $zero_cksum = 0;
+    my $id = int(rand(1000));
+    # Lets construct the TCP half
+    my $header = pack('ccSSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
+    #sending 69 bytes
+    my $data = "ICMP PROTOCOL DATA ICMP PROTOCOL DATA ICMP PROTOCOL DATA";
+    #calcular checksum del header + la data
+    my $my_checksum = checksum($header.$data);
+    #my $reverse_checksum = pack("S", unpack("n", $my_checksum));
+    $header = pack('ccnSs', ICMP_ECHO_REQUEST, 0, ($my_checksum), $id, 1);
+
+    # Now lets construct the IP packet
+    my $ip_ver = 4;
+    my $ip_len = 5;
+    my $ip_ver_len = $ip_ver . $ip_len;
+     
+    my $ip_tos = 00;
+    my $ip_tot_len = $tcp_len + 20;
+    my $ip_frag_id = 19245;
+    my $ip_ttl = 25;
+    my $ip_proto = $IPPROTO_TCP;    # 6 for tcp
+    my $ip_frag_flag = "010";
+    my $ip_frag_oset = "0000000000000";
+    my $ip_fl_fr = $ip_frag_flag . $ip_frag_oset;
+     
+    # ip header
+    # src and destination should be a4 and a4 since they are already in network byte order
+    my $ip_header = pack('H2CnnB16CCna4a4', 
+        $ip_ver_len, $ip_tos, $ip_tot_len, 
+        $ip_frag_id, $ip_fl_fr , $ip_ttl , $ip_proto , 
+        $zero_cksum , $src_host , $dst_host);
+     
+    # ip_header + header_icmp + data;
+    # tested with ip header and it doesnt work.
+    my $pkt =  $header . $data;
+     
+    # packet is ready
+    return $pkt;
+}
+ 
+ 
+#para el calculo del checksum podrian usar una funcion como la siguiente
 sub checksum {
     my $msg = shift;
+    #print $msg;
     my $length = length($msg);
+    #print $length;
     my $numShorts = $length/2;
     my $sum = 0;
 
     foreach (unpack("n$numShorts", $msg)) {
        $sum += $_;
-    }
+    }    #returns list of unsigned characters of 8 bytes
 
     $sum += unpack("C", substr($msg, $length - 1, 1)) if $length % 2;
     $sum = ($sum >> 16) + ($sum & 0xffff);
     return(~(($sum >> 16) + $sum) & 0xffff);
-}
-
-
+} 
