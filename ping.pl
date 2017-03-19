@@ -1,5 +1,13 @@
 #Program to send out tcp syn packets using raw sockets on linux
- 
+#references used:
+#https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
+#https://en.wikipedia.org/wiki/IPv4
+#http://www.perlmonks.org/?node_id=1101500
+#http://www.perlmonks.org/?displaytype=displaycode;part=1;node_id=17576;abspart=1
+#http://www.catonmat.net/download/perl.pack.unpack.printf.cheat.sheet.pdf
+#https://www.tutorialspoint.com/perl/perl_pack.htm
+#http://perldoc.perl.org/functions/pack.html
+#https://es.wikipedia.org/wiki/Internet_Control_Message_Protocol#Echo_Reply
 use Socket;
 use constant ICMP_ECHO_REQUEST => 8;
 
