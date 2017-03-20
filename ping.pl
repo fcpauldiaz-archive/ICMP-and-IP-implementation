@@ -39,14 +39,15 @@ sub main {
     #set IP_HDRINCL to 1, this is necessary when the above protocol is something other than IPPROTO_RAW
     #setsockopt(SOCKET, 0, IP_HDRINCL, 1);
     my $src_host = inet_ntoa((gethostbyname(hostname))[4]);
-    my $dst_host = inet_ntoa(inet_aton($dst_host));
+    my $ip_host = inet_ntoa(inet_aton($dst_host));
     my $src_port = 1; #doesnt matter
     my $dst_port = 1; #doestn matter
-    my $packet = makeheaders($src_host, $src_port, $dst_host, $dst_port);
+    my $packet = makeheaders($src_host, $src_port, $ip_host, $dst_port);
      
     my $destination = pack('Sna4x8', AF_INET, $dst_port, $destination_host);
 
-    send(SOCKET , $packet , 0 , $destination) or die $!;
+    my $sent_bytes = send(SOCKET , $packet , 0 , $destination) or die $!;
+    print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . $sent_bytes . " data bytes \n";
     
 }
  
