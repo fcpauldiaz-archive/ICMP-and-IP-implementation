@@ -29,8 +29,8 @@ else {
   
 sub main {
     my $src_host = (gethostbyname($src_host))[4];
-    my $dst_host = (gethostbyname($dst_host))[4];
-     
+    my $destination_host = (gethostbyname($dst_host))[4];
+    
     # when IPPROTO_RAW is used IP_HDRINCL is not needed
     $IPROTO_RAW = 1;
     socket(SOCKET , AF_INET, SOCK_RAW, $IPROTO_RAW) 
@@ -39,12 +39,12 @@ sub main {
     #set IP_HDRINCL to 1, this is necessary when the above protocol is something other than IPPROTO_RAW
     #setsockopt(SOCKET, 0, IP_HDRINCL, 1);
     my $src_host = inet_ntoa((gethostbyname(hostname))[4]);
+    my $dst_host = inet_ntoa(inet_aton($dst_host));
     my $src_port = 1; #doesnt matter
     my $dst_port = 1; #doestn matter
     my $packet = makeheaders($src_host, $src_port, $dst_host, $dst_port);
      
-    my $destination = pack('Sna4x8', AF_INET, $dst_port, $dst_host);
-     
+    my $destination = pack('Sna4x8', AF_INET, $dst_port, $destination_host);
 
     send(SOCKET , $packet , 0 , $destination) or die $!;
     
@@ -75,10 +75,12 @@ sub makeheaders {
     my $ip_frag_id = 19245;
     my $ip_ttl = 25;
     my $ip_proto = $IPPROTO_TCP;    # 1 for icmp
-    my $ip_frag_flag = "010";
+    my $ip_frag_flag = "000";
     my $ip_frag_oset = "0000000000000";
     my $ip_fl_fr = $ip_frag_flag . $ip_frag_oset;
-     
+
+    #$src_host = ip2bin($src_host, '');
+    #$dst_host = ip2bin($dst_host, '');
     # ip header
     # src and destination should be a4 and a4 since they are already in network byte order
     my $ip_header = pack('H2CnnB16CCna4a4', 
@@ -113,3 +115,10 @@ sub checksum {
     $sum = ($sum >> 16) + ($sum & 0xffff);
     return(~(($sum >> 16) + $sum) & 0xffff);
 } 
+
+sub ip2bin{
+    my ($ip, $delimiter) = @_;
+    return     join($delimiter,  map 
+        substr(unpack("B32",pack("N",$_)),-8), 
+        split(/\./,$ip));
+}
