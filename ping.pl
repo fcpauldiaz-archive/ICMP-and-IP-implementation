@@ -1,4 +1,4 @@
-#Program to send out tcp syn packets using raw sockets on linux
+#UVG Pablo Díaz 19/03/2017
 #references used:
 #https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 #https://en.wikipedia.org/wiki/IPv4
@@ -9,8 +9,11 @@
 #http://perldoc.perl.org/functions/pack.html
 #https://es.wikipedia.org/wiki/Internet_Control_Message_Protocol#Echo_Reply
 use Socket;
+#use Time::HiRes;
 use constant ICMP_ECHO_REQUEST => 8;
 use Sys::Hostname; #to get local ip
+use Time::HiRes qw( gettimeofday tv_interval);
+
 
 #$src_host = $ARGV[0]; # The source IP/Hostname
 #$src_port = $ARGV[1]; # The Source Port
@@ -45,9 +48,32 @@ sub main {
     my $packet = makeheaders($src_host, $src_port, $ip_host, $dst_port);
      
     my $destination = pack('Sna4x8', AF_INET, $dst_port, $destination_host);
+    
+    $cont = 0;
+    print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . length($packet) . " data bytes \n";
+    while ($cont < 10) {
+        my $timer = tv_interval ( $t0, [gettimeofday]);
+        my $sent_bytes = send(SOCKET , $packet , 0 , $destination) or die $!;
+        #print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . $sent_bytes . " data bytes \n";
+        my $my_message;
+        my $rtime = "";
+        my $hispaddr = recv(SOCKET, $rtime, $sent_bytes, 0)    || die "recv: $!";
+        my $now_time = tv_interval ( $t0, [gettimeofday]) - $timer;
+        my ($port, $hisiaddr) = sockaddr_in($hispaddr);
+        my $host = gethostbyaddr($hisiaddr, AF_INET);
+        my $histime = unpack("N", $rtime);
+        $RRT = substr($now_time*1000, 0, 5);
+        $RRT2 = $RRT/2;
+        print $sent_bytes . " bytes from " . $host . " RTT " . $RRT . " ms "  . " RTT/2 " . $RRT2 . " ms \n";
+        sleep(1);
+        #printf "%8d %s\n", $histime - time(), scalar localtime($histime) ;
+        #$RRT = substr($now_time*1000, 0, 5);
 
-    my $sent_bytes = send(SOCKET , $packet , 0 , $destination) or die $!;
-    print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . $sent_bytes . " data bytes \n";
+        $cont = $cont + 1;
+    }
+    #my $my_time = gettimeofday;
+    #print qq|$time{'yyymmdd hh:mm:ss.mmm', $time}\n\
+
     
 }
  
@@ -57,16 +83,17 @@ sub makeheaders {
      
     my $zero_cksum = 0;
     my $id = int(rand(1000));
-    # Lets construct the TCP half
+    # Lets construct the ICMP half
     my $icmp_header = pack('ccSSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
     #sending 48 bytes
     my $data = "UNIVERSIDAD DEL VALLE DE GUATEMALA ICMP DIA13203";
     #calcular checksum del icmp_header + la data
     my $my_checksum = checksum($icmp_header.$data);
+    #should invert checksum
     #my $reverse_checksum = pack("S", unpack("n", $my_checksum));
     $icmp_header = pack('ccnSs', ICMP_ECHO_REQUEST, 0, ($my_checksum), $id, 1);
 
-    # Now lets construct the IP packet
+    # construct IP package
     my $ip_ver = 4;
     my $ip_len = 5;
     my $ip_ver_len = $ip_ver . $ip_len;
