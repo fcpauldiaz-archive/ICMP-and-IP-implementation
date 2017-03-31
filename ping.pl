@@ -45,7 +45,8 @@ sub main {
     my $ip_host = inet_ntoa(inet_aton($dst_host));
     my $src_port = 1; #doesnt matter
     my $dst_port = 1; #doestn matter
-    my $packet = makeheaders($src_host, $src_port, $ip_host, $dst_port);
+    my $id = int(rand(100000));
+    my $packet = makeheaders($src_host, $src_port, $ip_host, $dst_port, $id);
      
     my $destination = pack('Sna4x8', AF_INET, $dst_port, $destination_host);
     
@@ -57,19 +58,64 @@ sub main {
         #print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . $sent_bytes . " data bytes \n";
         my $my_message;
         my $rtime = "";
-        my $hispaddr = recv(SOCKET, $rtime, $sent_bytes, 0)    || die "recv: $!";
-        my $now_time = tv_interval ( $t0, [gettimeofday]) - $timer;
-        my ($port, $hisiaddr) = sockaddr_in($hispaddr);
-        my $host = gethostbyaddr($hisiaddr, AF_INET);
-        my $histime = unpack("N", $rtime);
-        $RRT = substr($now_time*1000, 0, 5);
-        $RRT2 = $RRT/2;
-        print $sent_bytes . " bytes from " . $host . " RTT " . $RRT . " ms "  . " RTT/2 " . $RRT2 . " ms \n";
-        sleep(1);
+        my $buf = "";
+        
+        #saves the data received
+        my $received_bytes = sysread(SOCKET, $buf, 1024, 0);    
+        # this only receives de socket and the host, no data
+        #my $hispaddr = recv(SOCKET, $rtime, $sent_bytes, 1024)    || die "recv: $!";
+       
+        $icmpHeader = $buf;
+        #print $icmpHeader . " buffer \n";
+        #type, code, checksum, p_id, sequence
+        @array = unpack(
+             "SSSSSSSSSSccnSs", $buf
+        );
+        #print $array[10] . " type \n";
+        #print $array[11] . " code \n";
+        #print $array[12] . " checksum\n";
+        #print $array[13] . " id\n";
+        #print $array[14] . " sequence \n";
+        $verify_id = $array[13];
+        if ($verify_id == $id) {
+
+            my $now_time = tv_interval ( $t0, [gettimeofday]) - $timer;
+            my $RRT = substr($now_time*1000, 0, 5);
+            my $RRT2 = $RRT/2;
+            print $received_bytes . " bytes from " . " (".$ip_host. ") "." RTT " . $RRT . " ms "  . " RTT/2 " . $RRT2 . " ms \n";
+            $cont = $cont + 1;
+
+            sleep(1);
+        } else {
+            #print "ruido \n";
+        }
+        
+        #my ($port, $hisiaddr) = sockaddr_in($hispaddr);
+        # my $host = gethostbyaddr($hisiaddr, AF_INET);
+        
+        # #print $prt
+        # #print $host . "host\n";
+        # #print gethostbyaddrtbyname($host)."\n";
+        # #print inet_ntoa(inet_aton(($host)))."\n";
+        # if (length($host) == 0) {
+        #     print "Request timeout \n";
+        # } else {
+        #     my $histime = unpack("N", $rtime);
+        #     $RRT = substr($now_time*1000, 0, 5);
+        #     $RRT2 = $RRT/2;
+        #     my $receive_ip = inet_ntoa(inet_aton($host));
+        #     print "time " . $histime . "\n";
+        #     if ($receive_ip eq $ip_host) {
+        #         print $sent_bytes . " bytes from " . $host . " (".$receive_ip. ") "." RTT " . $RRT . " ms "  . " RTT/2 " . $RRT2 . " ms \n";
+        #     } else {
+        #         print "different ip received \n";
+        #     }
+        # }
+        
         #printf "%8d %s\n", $histime - time(), scalar localtime($histime) ;
         #$RRT = substr($now_time*1000, 0, 5);
 
-        $cont = $cont + 1;
+       
     }
     #my $my_time = gettimeofday;
     #print qq|$time{'yyymmdd hh:mm:ss.mmm', $time}\n\
@@ -79,10 +125,9 @@ sub main {
  
 sub makeheaders {
     $IPPROTO_TCP = 1;
-    local($src_host , $src_port , $dst_host , $dst_port) = @_;
+    local($src_host , $src_port , $dst_host , $dst_port, $id) = @_;
      
     my $zero_cksum = 0;
-    my $id = int(rand(1000));
     # Lets construct the ICMP half
     my $icmp_header = pack('ccSSs', ICMP_ECHO_REQUEST, 0,0, $id, 1);
     #sending 48 bytes
@@ -91,6 +136,7 @@ sub makeheaders {
     my $my_checksum = checksum($icmp_header.$data);
     #should invert checksum
     #my $reverse_checksum = pack("S", unpack("n", $my_checksum));
+    print $id ." id sent\n";
     $icmp_header = pack('ccnSs', ICMP_ECHO_REQUEST, 0, ($my_checksum), $id, 1);
 
     # construct IP package
