@@ -42,7 +42,10 @@ sub main {
     #set IP_HDRINCL to 1, this is necessary when the above protocol is something other than IPPROTO_RAW
     #setsockopt(SOCKET, 0, IP_HDRINCL, 1);
     my $src_host = inet_ntoa((gethostbyname(hostname))[4]);
-    my $ip_host = inet_ntoa(inet_aton($dst_host));
+    my $ip_host = "";
+    if (length(inet_aton($dst_host)) != 0) {
+        $ip_host = inet_ntoa(inet_aton($dst_host));
+    }
     my $src_port = 1; #doesnt matter
     my $dst_port = 1; #doestn matter
     my $id = int(rand(100000));
@@ -54,7 +57,7 @@ sub main {
     print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . length($packet) . " data bytes \n";
     while ($cont < 10) {
         my $timer = tv_interval ( $t0, [gettimeofday]);
-        my $sent_bytes = send(SOCKET , $packet , 0 , $destination) or die $!;
+        #my $sent_bytes = send(SOCKET , $packet , 0 , $destination) or die $!;
         #print "PING " . $dst_host . " (" . $ip_host . ")" . ": " . $sent_bytes . " data bytes \n";
         my $my_message;
         my $rtime = "";
@@ -67,59 +70,40 @@ sub main {
        
         $icmpHeader = $buf;
         #print $icmpHeader . " buffer \n";
+        #los primeros 9 bytes recibidos solo el señor sabe que son
+        #del 10 al 14 son:
         #type, code, checksum, p_id, sequence
         @array = unpack(
-             "SSSSSSSSSSccnSs", $buf
+             "ccnSs", $buf
         );
+        #debug whole package received from host
+        #foreach $a (@array){
+            #print "value of a: $a\n";
+        #}
+
         #print $array[10] . " type \n";
         #print $array[11] . " code \n";
         #print $array[12] . " checksum\n";
         #print $array[13] . " id\n";
         #print $array[14] . " sequence \n";
-        $verify_id = $array[13];
-        if ($verify_id == $id) {
+        my $type = $array[10];
+        my $code = $array[11];
+        my $verify_id = $array[13];
+        #check valid request
+        if ($verify_id == $id and $type == 0 and $code == 0) {
 
             my $now_time = tv_interval ( $t0, [gettimeofday]) - $timer;
             my $RRT = substr($now_time*1000, 0, 5);
             my $RRT2 = $RRT/2;
             print $received_bytes . " bytes from " . " (".$ip_host. ") "." RTT " . $RRT . " ms "  . " RTT/2 " . $RRT2 . " ms \n";
+            #repeat until valid package is received
             $cont = $cont + 1;
-
             sleep(1);
-        } else {
+        } else  {
             #print "ruido \n";
-        }
-        
-        #my ($port, $hisiaddr) = sockaddr_in($hispaddr);
-        # my $host = gethostbyaddr($hisiaddr, AF_INET);
-        
-        # #print $prt
-        # #print $host . "host\n";
-        # #print gethostbyaddrtbyname($host)."\n";
-        # #print inet_ntoa(inet_aton(($host)))."\n";
-        # if (length($host) == 0) {
-        #     print "Request timeout \n";
-        # } else {
-        #     my $histime = unpack("N", $rtime);
-        #     $RRT = substr($now_time*1000, 0, 5);
-        #     $RRT2 = $RRT/2;
-        #     my $receive_ip = inet_ntoa(inet_aton($host));
-        #     print "time " . $histime . "\n";
-        #     if ($receive_ip eq $ip_host) {
-        #         print $sent_bytes . " bytes from " . $host . " (".$receive_ip. ") "." RTT " . $RRT . " ms "  . " RTT/2 " . $RRT2 . " ms \n";
-        #     } else {
-        #         print "different ip received \n";
-        #     }
-        # }
-        
-        #printf "%8d %s\n", $histime - time(), scalar localtime($histime) ;
-        #$RRT = substr($now_time*1000, 0, 5);
-
+        }   
        
     }
-    #my $my_time = gettimeofday;
-    #print qq|$time{'yyymmdd hh:mm:ss.mmm', $time}\n\
-
     
 }
  
